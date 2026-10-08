@@ -1,2 +1,2 @@
 # Affirm-Fitness-Resources
-Math is hard, so let me do it for you. This is a free resource that allows you to calculate your Resting Metabolic Rate, Total Daily Energy Expenditure, target daily Caloric intake, and target macronutrients
+These resources accompany Section 4 Activities 9 and 10 of _Fitness for Every Body Companion Workbook_
