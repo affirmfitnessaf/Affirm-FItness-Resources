@@ -182,6 +182,43 @@ function calculate(){
   const goal = goals[$("goal").value];
   const calories = tdee + goal.adjust;
 
+  if(calories < 1500 || calories > 3000){
+    $("rmrResult").textContent = fmt(rmr) + " Calories/day";
+    $("tdeeResult").textContent = fmt(tdee) + " Calories/day";
+
+    $("calorieResult").textContent =
+      "Outside my recommended range";
+
+    $("warning").textContent =
+      "Your calculated daily Calorie goal falls outside the range I am comfortable recommending. As a personal trainer and nurse, I do not recommend Calorie goals below 1,500 or above 3,000 Calories per day without individualized guidance from a healthcare provider. Please consult a qualified healthcare provider to determine an appropriate Calorie goal for your needs.";
+
+    $("warning").classList.remove("hidden");
+
+    document.querySelector("#results h2:nth-of-type(2)")
+      .classList.add("hidden");
+
+    document.querySelectorAll("#results .result")
+      .forEach((element, index) => {
+        if(index >= 3) element.classList.add("hidden");
+      });
+
+    document.querySelector("#results h2:nth-of-type(2) + p")
+      .classList.add("hidden");
+
+    $("results").classList.remove("hidden");
+    $("results").scrollIntoView({behavior:"smooth",block:"start"});
+    return;
+  }
+
+  document.querySelector("#results h2:nth-of-type(2)")
+    .classList.remove("hidden");
+
+  document.querySelector("#results h2:nth-of-type(2) + p")
+    .classList.remove("hidden");
+
+  document.querySelectorAll("#results .result")
+    .forEach(element => element.classList.remove("hidden"));
+
   if(rmr<=0 || tdee<=0 || calories<=0){
     $("error").textContent = "These inputs produce an invalid energy estimate. Please review them.";
     return;
