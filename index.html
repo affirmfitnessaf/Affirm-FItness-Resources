@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -104,31 +103,31 @@ Daily Calorie Goal
 <div class="number" id="calorieResult"></div>
 </div>
 
-<h2>Macronutrient Goals</h2>
-<p>These are ranges based on your selected goal.</p>
-<div class="result">
+<h2 id="macroHeading">Macronutrient Goals</h2>
+<p id="macroDescription">These are ranges based on your selected goal.</p>
+<div class="result macro">
 <strong>Protein</strong>
 <div class="number" id="proteinResult"></div>
 <div id="proteinCalories"></div>
 </div>
-<div class="result">
+<div class="result macro">
 <strong>Fat</strong>
 <div class="number" id="fatResult"></div>
 <div id="fatCalories"></div>
 </div>
-<div class="result">
+<div class="result macro">
 <strong>Carbohydrates</strong>
 <div class="number" id="carbResult"></div>
 <div id="carbCalories"></div>
 </div>
-<p class="small">Each range is calculated independently. The minimum or maximum of every macronutrient should not all be selected simultaneously.</p>
+<p id="macroNote" class="small">Each range is calculated independently. The minimum or maximum of every macronutrient should not all be selected simultaneously.</p>
 <div id="warning" class="warning hidden"></div>
 </section>
 
 <section>
 <h2>About These Calculations</h2>
 <p>These calculations follow Activities 9 and 10 of the <em>Fitness for Every Body Companion Workbook</em>.</p>
-<p>RMR uses the Mifflin-St Jeor equation. TDEE is estimated by multiplying RMR by an activity factor. Protein targets are based on body weight, fat targets on daily Calories, and carbohydrate targets on the remaining Calories.</p>
+<p>RMR uses the Mifflin-St Jeor equation. TDEE is estimated by multiplying RMR by an activity factor. Protein targets use body weight in pounds, with factors rounded to two decimal places to match the workbook. Fat targets use percentages of daily Calories, and carbohydrate targets use the remaining Calories.</p>
 <p class="small">This calculator provides general educational estimates, not individualized medical or nutritional advice. Consult your healthcare team regarding individual needs.</p>
 </section>
 </main>
@@ -136,6 +135,15 @@ Daily Calorie Goal
 <script>
 const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString("en-US");
+const KG_PER_LB = 0.45359237;
+
+const goals = {
+  rapidGain: {adjust:500, pMin:0.73, pMax:0.91, fMin:0.20, fMax:0.30},
+  slowGain: {adjust:250, pMin:0.73, pMax:0.91, fMin:0.25, fMax:0.30},
+  maintain: {adjust:0, pMin:0.63, pMax:0.91, fMin:0.20, fMax:0.35},
+  slowLoss: {adjust:-250, pMin:0.73, pMax:1.00, fMin:0.20, fMax:0.30},
+  rapidLoss: {adjust:-500, pMin:0.73, pMax:1.00, fMin:0.20, fMax:0.30}
+};
 
 function changeUnits(){
   const metric = $("units").value === "metric";
@@ -149,10 +157,12 @@ function changeUnits(){
 function calculate(){
   $("error").textContent = "";
   $("results").classList.add("hidden");
+  $("warning").textContent = "";
+  $("warning").classList.add("hidden");
 
   let weight = Number($("weight").value);
   let height = Number($("height").value);
-  let age = Number($("age").value);
+  const age = Number($("age").value);
 
   if(!$("weight").value || !$("height").value || !$("age").value ||
      !Number.isFinite(weight) || !Number.isFinite(height) ||
@@ -162,85 +172,70 @@ function calculate(){
     return;
   }
 
-  if($("units").value === "imperial"){
-    weight = weight / 2.2;
-    height = height * 2.54;
-  }
+  const metric = $("units").value === "metric";
+
+  // RMR requires kilograms and centimeters.
+  // Protein calculations use pounds, matching the workbook.
+  const weightKg = metric ? weight : weight * KG_PER_LB;
+  const weightLb = metric ? weight / KG_PER_LB : weight;
+  const heightCm = metric ? height : height * 2.54;
 
   const constant = $("hormones").value === "t" ? 5 : -161;
-  const rmr = 10*weight + 6.25*height - 5*age + constant;
+  const rmr = 10*weightKg + 6.25*heightCm - 5*age + constant;
   const tdee = rmr * Number($("activity").value);
-
-  const goals = {
-    rapidGain: {adjust:500, pMin:1.6, pMax:2.0, fMin:.2, fMax:.3},
-    slowGain: {adjust:250, pMin:1.6, pMax:2.0, fMin:.25, fMax:.3},
-    maintain: {adjust:0, pMin:1.4, pMax:2.0, fMin:.2, fMax:.35},
-    slowLoss: {adjust:-250, pMin:1.6, pMax:2.2, fMin:.2, fMax:.3},
-    rapidLoss: {adjust:-500, pMin:1.6, pMax:2.2, fMin:.2, fMax:.3}
-  };
 
   const goal = goals[$("goal").value];
   const calories = tdee + goal.adjust;
 
-  if(calories < 1500 || calories > 3000){
-    $("rmrResult").textContent = fmt(rmr) + " Calories/day";
-    $("tdeeResult").textContent = fmt(tdee) + " Calories/day";
+  if(!Number.isFinite(rmr) || !Number.isFinite(tdee) ||
+     !Number.isFinite(calories) ||
+     rmr<=0 || tdee<=0 || calories<=0){
+    $("error").textContent = "These inputs produce an invalid energy estimate. Please review them.";
+    return;
+  }
 
-    $("calorieResult").textContent =
-      "Outside my recommended range";
+  $("rmrResult").textContent = fmt(rmr) + " Calories/day";
+  $("tdeeResult").textContent = fmt(tdee) + " Calories/day";
+
+  const outsideRange = calories < 1500 || calories > 3000;
+
+  $("macroHeading").classList.toggle("hidden",outsideRange);
+  $("macroDescription").classList.toggle("hidden",outsideRange);
+  $("macroNote").classList.toggle("hidden",outsideRange);
+
+  document.querySelectorAll("#results .macro")
+    .forEach(element => element.classList.toggle("hidden",outsideRange));
+
+  if(outsideRange){
+    $("calorieResult").textContent = "Outside my recommended range";
 
     $("warning").textContent =
       "Your calculated daily Calorie goal falls outside the range I am comfortable recommending. As a personal trainer and nurse, I do not recommend Calorie goals below 1,500 or above 3,000 Calories per day without individualized guidance from a healthcare provider. Please consult a qualified healthcare provider to determine an appropriate Calorie goal for your needs.";
 
     $("warning").classList.remove("hidden");
-
-    document.querySelector("#results h2:nth-of-type(2)")
-      .classList.add("hidden");
-
-    document.querySelectorAll("#results .result")
-      .forEach((element, index) => {
-        if(index >= 3) element.classList.add("hidden");
-      });
-
-    document.querySelector("#results h2:nth-of-type(2) + p")
-      .classList.add("hidden");
-
     $("results").classList.remove("hidden");
     $("results").scrollIntoView({behavior:"smooth",block:"start"});
     return;
   }
 
-  document.querySelector("#results h2:nth-of-type(2)")
-    .classList.remove("hidden");
-
-  document.querySelector("#results h2:nth-of-type(2) + p")
-    .classList.remove("hidden");
-
-  document.querySelectorAll("#results .result")
-    .forEach(element => element.classList.remove("hidden"));
-
-  if(rmr<=0 || tdee<=0 || calories<=0){
-    $("error").textContent = "These inputs produce an invalid energy estimate. Please review them.";
-    return;
-  }
-
-  const proteinMin = weight * goal.pMin;
-  const proteinMax = weight * goal.pMax;
+  // Protein factors are grams per pound, matching the revised worksheet.
+  const proteinMin = weightLb * goal.pMin;
+  const proteinMax = weightLb * goal.pMax;
   const proteinCalMin = proteinMin * 4;
   const proteinCalMax = proteinMax * 4;
 
+  // Fat factors are fractions of the daily Calorie goal.
   const fatCalMin = calories * goal.fMin;
   const fatCalMax = calories * goal.fMax;
   const fatMin = fatCalMin / 9;
   const fatMax = fatCalMax / 9;
 
+  // Carbohydrates receive the remaining Calories.
   const carbCalMin = calories - fatCalMax - proteinCalMax;
   const carbCalMax = calories - fatCalMin - proteinCalMin;
   const carbMin = carbCalMin / 4;
   const carbMax = carbCalMax / 4;
 
-  $("rmrResult").textContent = fmt(rmr) + " Calories/day";
-  $("tdeeResult").textContent = fmt(tdee) + " Calories/day";
   $("calorieResult").textContent = fmt(calories) + " Calories/day";
 
   $("proteinResult").textContent = fmt(proteinMin)+"–"+fmt(proteinMax)+" g/day";
@@ -252,13 +247,12 @@ function calculate(){
   $("carbResult").textContent = fmt(carbMin)+"–"+fmt(carbMax)+" g/day";
   $("carbCalories").textContent = fmt(carbCalMin)+"–"+fmt(carbCalMax)+" Calories";
 
-  let warnings = [];
-  if(calories<1500){
-    warnings.push("Your daily Calorie goal is below 1,500. Consult a qualified healthcare professional before restricting intake to this level.");
-  }
+  const warnings = [];
+
   if(carbCalMin<0){
     warnings.push("Your calculated minimum carbohydrate target is negative. The selected protein and fat ranges exceed the available Calories at their maximum values. These targets need individual adjustment.");
   }
+
   $("warning").textContent = warnings.join(" ");
   $("warning").classList.toggle("hidden",warnings.length===0);
 
